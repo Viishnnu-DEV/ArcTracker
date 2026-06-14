@@ -32,89 +32,93 @@ function extractContributions() {
   const newItems = [];
   const processedTitles = new Set();
   
-  potentialNodes.forEach(node => {
-    let dateTitleContainer = node;
-    let fullText = dateTitleContainer.textContent;
-    let rawTitle = fullText.replace(datePattern, '').trim();
+  // Find all text nodes in the body
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+  let n;
+  
+  // Ultra-forgiving date pattern: Month Day, Year
+  const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?,\s+\d{4}/i;
+  
+  while ((n = walk.nextNode())) {
+    let fullText = n.textContent.trim();
     
-    // If the matched node only contains the date (e.g. wrapped in a span), walk up to get the title
-    while (rawTitle === '' && dateTitleContainer.parentElement) {
-       dateTitleContainer = dateTitleContainer.parentElement;
-       fullText = dateTitleContainer.textContent;
-       rawTitle = fullText.replace(datePattern, '').trim();
-    }
-    
-    // Strip partner name prefix using 🤝 as delimiter
-    if (/^[^🤝]+🤝\s*/.test(rawTitle)) {
-      rawTitle = rawTitle.replace(/^[^🤝]+🤝\s*/, '');
-    }
-    
-    // Find action type by walking up tree from the container
-    let current = dateTitleContainer;
-    let actionType = "Unknown";
-    
-    for (let i = 0; i < 8; i++) {
-      if (current.parentElement) {
-        current = current.parentElement;
-        
-        const actionEl = Array.from(current.querySelectorAll('*')).find(el => {
-          const isClassMatch = el.className && typeof el.className === 'string' && el.className.includes('-InnerText-breakpointValues');
-          let hasSibling = false;
-          if (isClassMatch) {
-             const next = el.nextElementSibling;
-             if (next && /^x\d+$/.test(next.textContent.trim())) {
-                hasSibling = true;
-             }
+    // If the text node has the date pattern, it's a contribution item!
+    if (datePattern.test(fullText)) {
+      
+      // Some text nodes are split. Walk up to parent to get full text if needed
+      let parent = n.parentElement;
+      for (let i=0; i<3; i++) {
+        if (parent && parent.textContent.trim().length > fullText.length && datePattern.test(parent.textContent)) {
+           fullText = parent.textContent.trim();
+        }
+        if (parent) parent = parent.parentElement;
+      }
+      
+      // Extract title by stripping everything up to the handshake 🤝 or middle dot · or bullet •
+      let rawTitle = fullText.replace(datePattern, '').trim();
+      
+      // Strip partner names and separators
+      if (rawTitle.includes('🤝')) {
+        rawTitle = rawTitle.substring(rawTitle.indexOf('🤝') + 2);
+      } else if (rawTitle.includes('·')) {
+        rawTitle = rawTitle.substring(rawTitle.indexOf('·') + 1);
+      } else if (rawTitle.includes('•')) {
+        rawTitle = rawTitle.substring(rawTitle.indexOf('•') + 1);
+      }
+      
+      rawTitle = rawTitle.trim();
+      
+      if (!rawTitle) continue;
+      
+      // Now hunt for the action type (Watch a Video, Read Content) near this node
+      let actionType = 'article'; // Default
+      let searchNode = n.parentElement;
+      for (let i = 0; i < 8; i++) {
+        if (searchNode) {
+          const content = searchNode.textContent || "";
+          if (/Watch a Video/i.test(content) || /Play/i.test(content) || /View/i.test(content)) {
+            actionType = 'video';
+            break;
           }
-          const txt = el.textContent.trim();
-          const isTextMatch = (txt === 'Read Content' || txt === 'Watch a Video' || txt === 'Finish Onboarding');
-          return (isClassMatch && hasSibling) || isTextMatch;
-        });
-        
-        if (actionEl) {
-          actionType = actionEl.textContent.trim();
-          break; // Stop at the first valid action type container to avoid grabbing other rows
+          searchNode = searchNode.parentElement;
         }
       }
-    }
-    
-    // Attempt to fetch exact exact historical time if Arc includes it in the DOM
-    let exactTime = Date.now();
-    try {
-      const timeTag = current.querySelector('time[datetime], [datetime]');
-      if (timeTag && timeTag.getAttribute('datetime')) {
-        const parsed = new Date(timeTag.getAttribute('datetime')).getTime();
-        if (!isNaN(parsed)) exactTime = parsed;
+      
+      // See if Arc provides a hidden exact time
+      let exactTime = Date.now();
+      try {
+        let timeNode = n.parentElement;
+        for (let i = 0; i < 5; i++) {
+          if (timeNode) {
+            const timeTag = timeNode.querySelector('time[datetime], [datetime]');
+            if (timeTag && timeTag.getAttribute('datetime')) {
+              const parsed = new Date(timeTag.getAttribute('datetime')).getTime();
+              if (!isNaN(parsed)) {
+                exactTime = parsed;
+                break;
+              }
+            }
+            timeNode = timeNode.parentElement;
+          }
+        }
+      } catch(e) {}
+      
+      const normalizedTitle = normalizeTitle(rawTitle);
+      if (normalizedTitle && !processedTitles.has(normalizedTitle)) {
+        processedTitles.add(normalizedTitle);
+        newItems.push({
+          normalizedTitle,
+          rawTitle,
+          actionType,
+          dateText: fullText.match(datePattern)[0].trim(),
+          lastSeen: exactTime
+        });
       }
-    } catch(e) {}
-    
-    if (actionType.includes("Finish Onboarding") || !rawTitle) {
-      return; // skip non-content actions
     }
-    
-    const normalizedTitle = normalizeTitle(rawTitle);
-    if (normalizedTitle && !processedTitles.has(normalizedTitle)) {
-      processedTitles.add(normalizedTitle);
-      newItems.push({
-        normalizedTitle,
-        rawTitle,
-        actionType,
-        dateText: (fullText.match(datePattern) ? fullText.match(datePattern)[0].trim() : fullText),
-        lastSeen: exactTime
-      });
-    }
-  });
+  }
   
   if (newItems.length > 0) {
     chrome.storage.local.get(['completedItems'], (result) => {
-      let existing = result.completedItems || [];
-      let existingMap = new Map(existing.map(item => [item.normalizedTitle, item]));
-      
-      newItems.forEach(item => {
-        if (existingMap.has(item.normalizedTitle)) {
-          existingMap.get(item.normalizedTitle).lastSeen = item.lastSeen;
-        } else {
-          existingMap.set(item.normalizedTitle, item);
         }
       });
       
