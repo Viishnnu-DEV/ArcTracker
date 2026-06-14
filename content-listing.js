@@ -78,23 +78,7 @@ function removeBadge(card) {
   card.style.opacity = '1';
 }
 
-function attachCardClickListener(card, normTitle, actionType) {
-  if (card.dataset.arcTrackerListener === "true") return;
-  card.dataset.arcTrackerListener = "true";
-  
-  card.addEventListener('click', (e) => {
-    if (e.target.closest('.arc-house-tracker-badge') || e.target.closest('.arc-house-tracker-add')) {
-      return; 
-    }
-    chrome.storage.local.get(['clickTimes'], (res) => {
-      const times = res.clickTimes || {};
-      times[normTitle] = { time: Date.now(), type: actionType };
-      chrome.storage.local.set({ clickTimes: times });
-    });
-  });
-}
-
-function isCompleted(normTitle, completedItems, manualOverrides, clickTimes) {
+function isCompleted(normTitle, completedItems, manualOverrides) {
   // Check overrides
   const override = manualOverrides[normTitle];
   if (override) {
@@ -107,9 +91,6 @@ function isCompleted(normTitle, completedItems, manualOverrides, clickTimes) {
     }
   }
   
-  // Check clicks
-  if (clickTimes[normTitle]) return true;
-  
   // Check contributions
   return completedItems.some(item => {
     return item.normalizedTitle === normTitle || 
@@ -119,10 +100,9 @@ function isCompleted(normTitle, completedItems, manualOverrides, clickTimes) {
 }
 
 function matchCards() {
-  chrome.storage.local.get(['completedItems', 'manualOverrides', 'clickTimes'], (result) => {
+  chrome.storage.local.get(['completedItems', 'manualOverrides'], (result) => {
     const completedItems = result.completedItems || [];
     const manualOverrides = result.manualOverrides || {};
-    const clickTimes = result.clickTimes || {};
     
     const cards = document.querySelectorAll('[data-content-item="true"]');
     if (cards.length === 0) return;
@@ -157,11 +137,10 @@ function matchCards() {
       
       if (title) {
         const normTitle = normalizeTitle(title);
-        attachCardClickListener(card, normTitle, actionType);
         
         removeBadge(card);
         
-        if (isCompleted(normTitle, completedItems, manualOverrides, clickTimes)) {
+        if (isCompleted(normTitle, completedItems, manualOverrides)) {
           injectBadge(card, normTitle, actionType);
           matchCount++;
         } else {

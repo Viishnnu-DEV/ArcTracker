@@ -19,19 +19,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   function updateCount() {
-    chrome.storage.local.get(['completedItems', 'clickTimes', 'manualOverrides'], (res) => {
+    chrome.storage.local.get(['completedItems', 'manualOverrides'], (res) => {
       const items = res.completedItems || [];
-      const clickTimes = res.clickTimes || {};
       const manualOverrides = res.manualOverrides || {};
       
       // Calculate totals
       let total = items.length;
-      Object.values(manualOverrides).forEach(v => {
-        if ((typeof v === 'number' && v > 0) || (typeof v === 'object' && v.time > 0)) total++;
-      });
-      Object.keys(clickTimes).forEach(k => {
-        // If not already in items
-        if (!items.some(i => i.normalizedTitle === k)) total++;
+      Object.keys(manualOverrides).forEach(k => {
+        const v = manualOverrides[k];
+        if ((typeof v === 'number' && v > 0) || (typeof v === 'object' && v.time > 0)) {
+           // Only add if not already in synced items
+           if (!items.some(i => i.normalizedTitle === k)) total++;
+        }
       });
       countEl.textContent = total;
       
@@ -42,17 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let recentVideos = [];
       let recentArticles = [];
       
-      // We process all clickTimes and manualOverrides to find exact timestamps
-      // My Contributions page gives us dates, but we want exact times. If it's only in completedItems, 
-      // we don't have the exact time, so we just use lastSeen (sync time) as a rough fallback.
-      
       const allEvents = [];
-      
-      Object.values(clickTimes).forEach(v => {
-        if (v && v.time && (now - v.time < TWENTY_FOUR_HOURS)) {
-          allEvents.push({ time: v.time, type: v.type || 'article' });
-        }
-      });
       
       Object.values(manualOverrides).forEach(v => {
         if (v && typeof v === 'object' && v.time > 0 && (now - v.time < TWENTY_FOUR_HOURS)) {
