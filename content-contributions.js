@@ -12,52 +12,51 @@ function normalizeTitle(title) {
 }
 
 function extractContributions() {
-  // Use \s+ to handle non-breaking spaces or multiple spaces
-  const datePattern = /^\s*[A-Za-z]{3}\s+\d{1,2}(?:st|nd|rd|th)?,\s+\d{4}\s*·\s*/;
-  
-  const allNodes = Array.from(document.querySelectorAll('*'));
-  const potentialNodes = allNodes.filter(el => {
-    if (!datePattern.test(el.textContent)) return false;
-    // Check if any child also starts with the date. If so, let the child be the match.
-    for (let i = 0; i < el.children.length; i++) {
-       if (datePattern.test(el.children[i].textContent)) {
-           return false;
-       }
-    }
-    return true;
-  });
-  
-  console.log(`Arc House Task Tracker: Found ${potentialNodes.length} potential contribution rows.`);
-  
   const newItems = [];
   const processedTitles = new Set();
   
-  // Find all text nodes in the body
+  // Find all text nodes that match an action type
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
   let n;
   
-  // Ultra-forgiving date pattern: Month Day, Year
-  const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?,\s+\d{4}/i;
-  
   while ((n = walk.nextNode())) {
-    let fullText = n.textContent.trim();
+    const text = n.textContent.trim();
+    let actionType = null;
     
-    // If the text node has the date pattern, it's a contribution item!
-    if (datePattern.test(fullText)) {
-      
-      // Some text nodes are split. Walk up to parent to get full text if needed
-      let parent = n.parentElement;
-      for (let i=0; i<3; i++) {
-        if (parent && parent.textContent.trim().length > fullText.length && datePattern.test(parent.textContent)) {
-           fullText = parent.textContent.trim();
+    if (/Watch a Video/i.test(text) || /Play/i.test(text) || /View/i.test(text)) {
+      actionType = 'video';
+    } else if (/Read Content/i.test(text)) {
+      actionType = 'article';
+    }
+    
+    if (actionType) {
+      // We found an action type! Let's walk up 3-5 levels to get the row container
+      let rowContainer = n.parentElement;
+      for (let i = 0; i < 4; i++) {
+        if (rowContainer && rowContainer.parentElement) {
+          rowContainer = rowContainer.parentElement;
         }
-        if (parent) parent = parent.parentElement;
       }
       
-      // Extract title by stripping everything up to the handshake 🤝 or middle dot · or bullet •
-      let rawTitle = fullText.replace(datePattern, '').trim();
+      if (!rowContainer) continue;
       
-      // Strip partner names and separators
+      let fullText = rowContainer.textContent.replace(/\s+/g, ' ').trim();
+      
+      // The full text will have the action, date, and title.
+      // Strip out known boilerplate
+      let rawTitle = fullText
+        .replace(/Watch a Video/ig, '')
+        .replace(/Read Content/ig, '')
+        .replace(/Finish Onboarding/ig, '');
+        
+      // Strip dates if they match the old pattern
+      const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?(?:,)?\s+\d{4}/ig;
+      rawTitle = rawTitle.replace(datePattern, '');
+      
+      // Strip relative dates like Today, Yesterday
+      rawTitle = rawTitle.replace(/\b(?:Today|Yesterday|\d+\s+(?:hours?|mins?|days?)\s+ago)\b/ig, '');
+      
+      // Strip partner handshakes
       if (rawTitle.includes('🤝')) {
         rawTitle = rawTitle.substring(rawTitle.indexOf('🤝') + 2);
       } else if (rawTitle.includes('·')) {
@@ -67,39 +66,15 @@ function extractContributions() {
       }
       
       rawTitle = rawTitle.trim();
-      
       if (!rawTitle) continue;
       
-      // Now hunt for the action type (Watch a Video, Read Content) near this node
-      let actionType = 'article'; // Default
-      let searchNode = n.parentElement;
-      for (let i = 0; i < 8; i++) {
-        if (searchNode) {
-          const content = searchNode.textContent || "";
-          if (/Watch a Video/i.test(content) || /Play/i.test(content) || /View/i.test(content)) {
-            actionType = 'video';
-            break;
-          }
-          searchNode = searchNode.parentElement;
-        }
-      }
-      
-      // See if Arc provides a hidden exact time
+      // Check for exact time in the row
       let exactTime = Date.now();
       try {
-        let timeNode = n.parentElement;
-        for (let i = 0; i < 5; i++) {
-          if (timeNode) {
-            const timeTag = timeNode.querySelector('time[datetime], [datetime]');
-            if (timeTag && timeTag.getAttribute('datetime')) {
-              const parsed = new Date(timeTag.getAttribute('datetime')).getTime();
-              if (!isNaN(parsed)) {
-                exactTime = parsed;
-                break;
-              }
-            }
-            timeNode = timeNode.parentElement;
-          }
+        const timeTag = rowContainer.querySelector('time[datetime], [datetime]');
+        if (timeTag && timeTag.getAttribute('datetime')) {
+          const parsed = new Date(timeTag.getAttribute('datetime')).getTime();
+          if (!isNaN(parsed)) exactTime = parsed;
         }
       } catch(e) {}
       
@@ -110,7 +85,7 @@ function extractContributions() {
           normalizedTitle,
           rawTitle,
           actionType,
-          dateText: fullText.match(datePattern)[0].trim(),
+          dateText: "Synced",
           lastSeen: exactTime
         });
       }
@@ -119,16 +94,17 @@ function extractContributions() {
   
   if (newItems.length > 0) {
     chrome.storage.local.get(['completedItems'], (result) => {
-        }
-      });
+      const existing = result.completedItems || [];
+      const map = new Map();
+      existing.forEach(item => map.set(item.normalizedTitle, item));
+      newItems.forEach(item => map.set(item.normalizedTitle, item));
       
-      const merged = Array.from(existingMap.values());
-      chrome.storage.local.set({ completedItems: merged }, () => {
-        console.log(`Arc House Task Tracker: Synced ${merged.length} completed items (${newItems.length} found on this page).`);
+      chrome.storage.local.set({ completedItems: Array.from(map.values()) }, () => {
+        chrome.runtime.sendMessage({ action: "scanComplete", count: map.size });
       });
     });
   } else {
-    console.warn("Arc House Task Tracker: 0 contribution rows extracted. The page structure might have changed.");
+    chrome.runtime.sendMessage({ action: "scanComplete", count: 0 });
   }
 }
 
