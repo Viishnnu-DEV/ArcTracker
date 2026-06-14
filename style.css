@@ -1,0 +1,173 @@
+/* popup.html styles */
+body.popup-body {
+  width: 280px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding: 15px;
+  color: #333;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.popup-body h3 {
+  margin-top: 0;
+  font-size: 16px;
+  color: #2c3e50;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+}
+
+.popup-body .stats-box {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #e1e4e8;
+}
+
+.popup-body .stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.popup-body .stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.popup-body .stat-val {
+  font-size: 14px;
+  font-weight: bold;
+  color: #3498db;
+}
+
+.popup-body .unlock-time {
+  font-size: 11px;
+  color: #e67e22;
+  margin-bottom: 8px;
+  text-align: right;
+  min-height: 14px;
+}
+
+.popup-body .total-tracked {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e1e4e8;
+}
+
+.popup-body .instructions {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 15px;
+}
+
+.popup-body .buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup-body button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #3498db;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.popup-body button:hover {
+  background-color: #2980b9;
+}
+
+.popup-body button.danger {
+  background-color: #e74c3c;
+}
+
+.popup-body button.danger:hover {
+  background-color: #c0392b;
+}
+
+.popup-body .about-text {
+  font-size: 10px;
+  color: #999;
+  text-align: center;
+  margin-top: 20px;
+  line-height: 1.3;
+}
+
+/* Injected Badge Styles */
+.arc-house-tracker-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background-color: rgba(46, 204, 113, 0.95);
+  border-radius: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.arc-house-tracker-badge:hover {
+  transform: scale(1.1);
+  background-color: rgba(231, 76, 60, 0.95); /* turns red to show it will be removed */
+}
+
+.arc-house-tracker-badge:hover svg polyline {
+  display: none;
+}
+
+.arc-house-tracker-badge:hover::after {
+  content: "×";
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.arc-house-tracker-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Manual add button */
+.arc-house-tracker-add {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s;
+  color: white;
+}
+
+[data-content-item="true"]:hover .arc-house-tracker-add {
+  opacity: 1;
+}
+
+.arc-house-tracker-add:hover {
+  background-color: rgba(46, 204, 113, 0.8);
+}
+
+.arc-house-tracker-add svg {
+  width: 14px;
+  height: 14px;
+}

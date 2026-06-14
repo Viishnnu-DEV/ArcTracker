@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Arc House Task Tracker",
+  "version": "1.0.0",
+  "description": "A personal study/productivity tool for use on community.arc.io to track completed tasks. Not affiliated with Arc, Circle, or Arc House.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://community.arc.io/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://community.arc.io/home/contributors/my-contributions*"],
+      "js": ["content-contributions.js"]
+    },
+    {
+      "matches": ["https://community.arc.io/home", "https://community.arc.io/home/content*"],
+      "js": ["content-listing.js"],
+      "css": ["style.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icon-16.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="popup-body">
+  <h3>Arc House Task Tracker</h3>
+  <div class="stats-box">
+    <div class="stat-row">
+      <div class="stat-label">Videos (Last 24h)</div>
+      <div class="stat-val"><span id="video-count">0</span> / 4</div>
+    </div>
+    <div class="unlock-time" id="video-unlock"></div>
+    
+    <div class="stat-row">
+      <div class="stat-label">Articles (Last 24h)</div>
+      <div class="stat-val"><span id="article-count">0</span> / 5</div>
+    </div>
+    <div class="unlock-time" id="article-unlock"></div>
+    
+    <div class="stat-row total-tracked">
+      <div class="stat-label">Total Tracked</div>
+      <div class="stat-val" id="item-count">0</div>
+    </div>
+  </div>
+  
+  <p class="instructions">Sync your completed items by visiting <strong>My Contributions</strong>. Your Daily Quotas are based on exactly when you clicked to view content on the Home page.</p>
+  
+  <div class="buttons">
+    <button id="rescan-btn">Rescan Active Tab</button>
+    <button id="clear-btn" class="danger">Clear Stored Data</button>
+  </div>
+  
+  <p class="about-text">
+    <em>Not affiliated with, endorsed by, or produced in partnership with Arc, Circle, or Arc House.</em>
+  </p>
+  <script src="popup.js"></script>
+</body>
+</html>
